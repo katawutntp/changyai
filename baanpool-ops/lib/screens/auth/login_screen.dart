@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showEmailLogin = false;
 
   late final LineAuthService _lineAuth;
+  StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
@@ -26,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _lineAuth = LineAuthService(Supabase.instance.client);
 
     // Listen for auth state changes (e.g., after LINE callback)
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       if (data.event == AuthChangeEvent.signedIn && mounted) {
         await AuthStateService().loadUserProfile();
         if (mounted) {
@@ -39,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();

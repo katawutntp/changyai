@@ -37,16 +37,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final results = await Future.wait([
         _service.getUrgentJobsCount(),
         _service.getTodayJobsCount(),
-        _service.getWorkOrders(),
-        _service.getProperties(),
+        _service.getRecentWorkOrders(limit: 5),
+        _service.getPropertyNamesOnly(),
       ]);
 
       _urgentCount = results[0] as int;
       _todayCount = results[1] as int;
-      final allWorkOrders = results[2] as List<Map<String, dynamic>>;
+      _recentWorkOrders = results[2] as List<Map<String, dynamic>>;
       final allProperties = results[3] as List<Map<String, dynamic>>;
 
-      _recentWorkOrders = allWorkOrders.take(5).toList();
       _totalProperties = allProperties.length;
       _propertyNames = {
         for (final p in allProperties) p['id'] as String: p['name'] as String,

@@ -32,10 +32,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final pData = await _service.getProperty(widget.propertyId);
-      final aData = await _service.getAssets(propertyId: widget.propertyId);
-      _property = Property.fromJson(pData);
-      _assets = aData.map((e) => Asset.fromJson(e)).toList();
+      final results = await Future.wait([
+        _service.getProperty(widget.propertyId),
+        _service.getAssets(propertyId: widget.propertyId),
+      ]);
+      _property = Property.fromJson(results[0] as Map<String, dynamic>);
+      _assets = (results[1] as List<Map<String, dynamic>>)
+          .map((e) => Asset.fromJson(e))
+          .toList();
 
       // Load last maintenance dates for all assets
       if (_assets.isNotEmpty) {

@@ -79,7 +79,7 @@ class _WorkOrderFormScreenState extends State<WorkOrderFormScreen> {
       ]);
       _properties = results[0];
       // Caretaker role can only assign technicians
-      final allUsers = results[1] as List<Map<String, dynamic>>;
+      final allUsers = results[1];
       final currentRole = AuthStateService().currentRole;
       if (currentRole == UserRole.caretaker) {
         _technicians = allUsers
@@ -110,19 +110,24 @@ class _WorkOrderFormScreenState extends State<WorkOrderFormScreen> {
     setState(() => _saving = true);
 
     try {
-      // Upload images first
+      // Upload images in parallel
       final photoUrls = <String>[];
+      final uploadFutures = <Future<String?>>[];
       for (int i = 0; i < _imageBytes.length; i++) {
         final bytes = _imageBytes[i];
         final ext = _pickedImages[i].name.split('.').last;
         final path =
             'work-orders/${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
-        try {
-          final url = await _service.uploadFile('photos', path, bytes);
-          photoUrls.add(url);
-        } catch (e) {
-          debugPrint('Upload image $i failed: $e');
-        }
+        uploadFutures.add(
+          _service.uploadFile('photos', path, bytes).then<String?>((url) => url).catchError((_) {
+            debugPrint('Upload image $i failed');
+            return null;
+          }),
+        );
+      }
+      final uploadResults = await Future.wait(uploadFutures);
+      for (final url in uploadResults) {
+        if (url != null) photoUrls.add(url);
       }
 
       final data = {
@@ -167,13 +172,17 @@ class _WorkOrderFormScreenState extends State<WorkOrderFormScreen> {
     try {
       final images = await _picker.pickMultiImage(imageQuality: 70);
       if (images.isEmpty) return;
+      final newImages = <XFile>[];
+      final newBytes = <Uint8List>[];
       for (final img in images) {
         final bytes = await img.readAsBytes();
-        setState(() {
-          _pickedImages.add(img);
-          _imageBytes.add(bytes);
-        });
+        newImages.add(img);
+        newBytes.add(bytes);
       }
+      setState(() {
+        _pickedImages.addAll(newImages);
+        _imageBytes.addAll(newBytes);
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

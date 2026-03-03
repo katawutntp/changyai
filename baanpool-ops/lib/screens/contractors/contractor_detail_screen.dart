@@ -29,11 +29,14 @@ class _ContractorDetailScreenState extends State<ContractorDetailScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await _service.getContractor(widget.contractorId);
-      _contractor = Contractor.fromJson(data);
-
-      final histData = await _service.getContractorHistory(widget.contractorId);
-      _history = histData.map((e) => ContractorHistory.fromJson(e)).toList();
+      final results = await Future.wait([
+        _service.getContractor(widget.contractorId),
+        _service.getContractorHistory(widget.contractorId),
+      ]);
+      _contractor = Contractor.fromJson(results[0] as Map<String, dynamic>);
+      _history = (results[1] as List<Map<String, dynamic>>)
+          .map((e) => ContractorHistory.fromJson(e))
+          .toList();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

@@ -20,6 +20,10 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="ระบบบริหารจัดการบ้านพูล ChangYai">
 
+  <!-- Preconnect to Supabase for faster API calls -->
+  <link rel="preconnect" href="https://ytrfgetdrtjrjfhvcqgt.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://ytrfgetdrtjrjfhvcqgt.supabase.co">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -31,8 +35,34 @@
 
   <title>ChangYai</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    body { margin: 0; background: #FAFAFA; }
+    .loading-container {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh; font-family: sans-serif; color: #666;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #eee; border-top: 3px solid #F36734;
+      border-radius: 50%; animation: spin .8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div id="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>กำลังโหลด...</span>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('loading');
+      if (el) el.remove();
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

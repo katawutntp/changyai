@@ -40,35 +40,39 @@ class _WorkOrderDetailScreenState extends State<WorkOrderDetailScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await _service.getWorkOrders();
-      final match = data.where((d) => d['id'] == widget.workOrderId);
-      if (match.isNotEmpty) {
-        _workOrder = WorkOrder.fromJson(match.first);
+      final woData = await _service.getWorkOrder(widget.workOrderId);
+      _workOrder = WorkOrder.fromJson(woData);
 
-        // Load property name
-        try {
-          final prop = await _service.getProperty(_workOrder!.propertyId);
-          _propertyName = prop['name'] as String?;
-        } catch (_) {}
+      // Load property, technician, and expense check in parallel
+      final futures = <Future>[
+        _service
+            .getProperty(_workOrder!.propertyId)
+            .then((prop) {
+              _propertyName = prop['name'] as String?;
+            })
+            .catchError((_) {}),
+        _service
+            .getExpenses(workOrderId: widget.workOrderId)
+            .then((expenses) {
+              _hasExpense = expenses.isNotEmpty;
+            })
+            .catchError((_) {
+              _hasExpense = false;
+            }),
+      ];
 
-        // Load technician name
-        if (_workOrder!.assignedTo != null) {
-          try {
-            final user = await _service.getUser(_workOrder!.assignedTo!);
-            _technicianName = user?['full_name'] as String?;
-          } catch (_) {}
-        }
-
-        // Check if expense already exists for this work order
-        try {
-          final expenses = await _service.getExpenses(
-            workOrderId: widget.workOrderId,
-          );
-          _hasExpense = expenses.isNotEmpty;
-        } catch (_) {
-          _hasExpense = false;
-        }
+      if (_workOrder!.assignedTo != null) {
+        futures.add(
+          _service
+              .getUser(_workOrder!.assignedTo!)
+              .then((user) {
+                _technicianName = user?['full_name'] as String?;
+              })
+              .catchError((_) {}),
+        );
       }
+
+      await Future.wait(futures);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -302,19 +306,24 @@ class _WorkOrderDetailScreenState extends State<WorkOrderDetailScreen> {
         ).showSnackBar(const SnackBar(content: Text('กำลังอัปโหลดรูปภาพ...')));
       }
 
-      // Upload images
+      // Upload images in parallel
       final photoUrls = <String>[..._workOrder?.photoUrls ?? []];
+      final uploadFutures = <Future<String?>>[];
       for (int i = 0; i < _completionImageBytes.length; i++) {
         final bytes = _completionImageBytes[i];
         final ext = _completionImages[i].name.split('.').last;
         final path =
             'work-orders/complete_${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
-        try {
-          final url = await _service.uploadFile('photos', path, bytes);
-          photoUrls.add(url);
-        } catch (e) {
-          debugPrint('Upload completion image $i failed: $e');
-        }
+        uploadFutures.add(
+          _service.uploadFile('photos', path, bytes).then<String?>((url) => url).catchError((_) {
+            debugPrint('Upload completion image $i failed');
+            return null;
+          }),
+        );
+      }
+      final uploadResults = await Future.wait(uploadFutures);
+      for (final url in uploadResults) {
+        if (url != null) photoUrls.add(url);
       }
 
       // Update work order: status + photos

@@ -33,13 +33,16 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final aData = await _service.getAsset(widget.assetId);
-      _asset = Asset.fromJson(aData);
-      final sData = await _service.getPmSchedules(assetId: widget.assetId);
-      _schedules = sData.map((e) => PmSchedule.fromJson(e)).toList();
-      _lastMaintenanceDate = await _service.getLastMaintenanceDate(
-        widget.assetId,
-      );
+      final results = await Future.wait([
+        _service.getAsset(widget.assetId),
+        _service.getPmSchedules(assetId: widget.assetId),
+        _service.getLastMaintenanceDate(widget.assetId),
+      ]);
+      _asset = Asset.fromJson(results[0] as Map<String, dynamic>);
+      _schedules = (results[1] as List<Map<String, dynamic>>)
+          .map((e) => PmSchedule.fromJson(e))
+          .toList();
+      _lastMaintenanceDate = results[2] as DateTime?;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

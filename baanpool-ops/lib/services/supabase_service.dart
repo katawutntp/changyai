@@ -114,6 +114,10 @@ class SupabaseService {
     await _client.from('work_orders').insert(data);
   }
 
+  Future<Map<String, dynamic>> getWorkOrder(String id) async {
+    return await _client.from('work_orders').select().eq('id', id).single();
+  }
+
   Future<void> updateWorkOrderStatus(String id, String status) async {
     await _client.from('work_orders').update({'status': status}).eq('id', id);
   }
@@ -272,14 +276,58 @@ class SupabaseService {
     return null;
   }
 
-  /// Get last maintenance dates for multiple assets (batch)
+  /// Get last maintenance dates for multiple assets (batch — single query)
   Future<Map<String, DateTime?>> getLastMaintenanceDates(
     List<String> assetIds,
   ) async {
-    final result = <String, DateTime?>{};
-    for (final id in assetIds) {
-      result[id] = await getLastMaintenanceDate(id);
+    if (assetIds.isEmpty) return {};
+
+    final result = <String, DateTime?>{for (final id in assetIds) id: null};
+
+    // Batch 1: get all PM schedule last_completed_date for these assets
+    try {
+      final pmData = await _client
+          .from('pm_schedules')
+          .select('asset_id, last_completed_date')
+          .inFilter('asset_id', assetIds)
+          .not('last_completed_date', 'is', null)
+          .order('last_completed_date', ascending: false);
+
+      for (final row in pmData) {
+        final assetId = row['asset_id'] as String;
+        final date = DateTime.parse(row['last_completed_date'] as String);
+        if (result[assetId] == null || date.isAfter(result[assetId]!)) {
+          result[assetId] = date;
+        }
+      }
+    } catch (_) {}
+
+    // Batch 2: get completed work_orders for assets still without a date
+    final missingIds = result.entries
+        .where((e) => e.value == null)
+        .map((e) => e.key)
+        .toList();
+
+    if (missingIds.isNotEmpty) {
+      try {
+        final woData = await _client
+            .from('work_orders')
+            .select('asset_id, completed_at')
+            .inFilter('asset_id', missingIds)
+            .eq('status', 'completed')
+            .not('completed_at', 'is', null)
+            .order('completed_at', ascending: false);
+
+        for (final row in woData) {
+          final assetId = row['asset_id'] as String;
+          final date = DateTime.parse(row['completed_at'] as String);
+          if (result[assetId] == null || date.isAfter(result[assetId]!)) {
+            result[assetId] = date;
+          }
+        }
+      } catch (_) {}
     }
+
     return result;
   }
 
@@ -311,6 +359,35 @@ class SupabaseService {
         .gte('created_at', start.toIso8601String())
         .lt('created_at', end.toIso8601String());
     return data.length;
+  }
+
+  /// Lightweight: get only recent work orders (limited) for dashboard
+  Future<List<Map<String, dynamic>>> getRecentWorkOrders({int limit = 5}) async {
+    return await _client
+        .from('work_orders')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit);
+  }
+
+  /// Lightweight: get property count + name map without full data
+  Future<List<Map<String, dynamic>>> getPropertyNamesOnly() async {
+    return await _client
+        .from('properties')
+        .select('id, name')
+        .order('name', ascending: true);
+  }
+
+  /// Get work_order_ids that have at least one expense (for badge checking)
+  Future<Set<String>> getWorkOrderIdsWithExpenses() async {
+    final data = await _client
+        .from('expenses')
+        .select('work_order_id')
+        .not('work_order_id', 'is', null);
+    return {
+      for (final e in data)
+        if (e['work_order_id'] != null) e['work_order_id'] as String,
+    };
   }
 
   // ─── User Management ─────────────────────────────────

@@ -72,8 +72,6 @@ class ChangYaiApp extends StatelessWidget {
       title: 'ChangYai',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.light,
       routerConfig: appRouter,
     );
   }

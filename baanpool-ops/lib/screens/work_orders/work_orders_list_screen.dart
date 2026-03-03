@@ -31,8 +31,8 @@ class _WorkOrdersListScreenState extends State<WorkOrdersListScreen> {
     try {
       final results = await Future.wait([
         _service.getWorkOrders(status: _filterStatus),
-        _service.getProperties(),
-        _service.getExpenses(),
+        _service.getPropertyNamesOnly(),
+        _service.getWorkOrderIdsWithExpenses(),
       ]);
       final data = results[0] as List<Map<String, dynamic>>;
       _workOrders = data.map((e) => WorkOrder.fromJson(e)).toList();
@@ -42,12 +42,7 @@ class _WorkOrdersListScreenState extends State<WorkOrdersListScreen> {
         for (final p in properties) p['id'] as String: p['name'] as String,
       };
 
-      // Build set of work order IDs that have expenses
-      final expenses = results[2] as List<Map<String, dynamic>>;
-      _workOrderIdsWithExpense = {
-        for (final e in expenses)
-          if (e['work_order_id'] != null) e['work_order_id'] as String,
-      };
+      _workOrderIdsWithExpense = results[2] as Set<String>;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
