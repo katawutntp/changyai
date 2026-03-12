@@ -24,8 +24,26 @@ echo "=== Building Flutter Web ==="
 flutter pub get
 flutter build web --release
 
-# Remove service worker to prevent stale cache issues
-echo "=== Removing service worker cache ==="
-rm -f build/web/flutter_service_worker.js
+# Replace service worker with self-destroying version to clear old caches
+echo "=== Replacing service worker with self-destruct ==="
+cat > build/web/flutter_service_worker.js << 'SWEOF'
+// Self-destroying service worker: clears all caches and unregisters itself
+self.addEventListener('install', function(e) {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function(e) {
+  e.waitUntil(
+    caches.keys().then(function(names) {
+      return Promise.all(names.map(function(name) { return caches.delete(name); }));
+    }).then(function() {
+      return self.registration.unregister();
+    }).then(function() {
+      return self.clients.matchAll();
+    }).then(function(clients) {
+      clients.forEach(function(client) { client.navigate(client.url); });
+    })
+  );
+});
+SWEOF
 
 echo "=== Build complete ==="
