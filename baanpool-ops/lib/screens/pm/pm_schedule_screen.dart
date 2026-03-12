@@ -136,6 +136,8 @@ class _PmScheduleScreenState extends State<PmScheduleScreen> {
     Set<String> selectedAssetIds = {};
     Map<String, List<Map<String, dynamic>>> propertyAssetsMap = {};
     bool loadingAssets = false;
+    bool propertySectionExpanded = true;
+    bool assetSectionExpanded = false;
 
     final result = await showDialog<bool>(
       context: context,
@@ -173,6 +175,8 @@ class _PmScheduleScreenState extends State<PmScheduleScreen> {
                 allAssets = combined;
                 propertyAssetsMap = newMap;
                 loadingAssets = false;
+                propertySectionExpanded = false;
+                assetSectionExpanded = true;
               });
             } catch (e) {
               setDialogState(() => loadingAssets = false);
@@ -344,57 +348,69 @@ class _PmScheduleScreenState extends State<PmScheduleScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Divider(),
-                    const Text(
-                      'เลือกบ้าน',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    ...properties.map((p) {
-                      final pid = p['id'] as String;
-                      final pName = p['name'] as String;
-                      return CheckboxListTile(
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        title: Text(
-                          pName,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        value: selectedPropertyIds.contains(pid),
-                        onChanged: (v) {
-                          setDialogState(() {
-                            if (v == true) {
-                              selectedPropertyIds.add(pid);
-                            } else {
-                              selectedPropertyIds.remove(pid);
-                            }
-                          });
-                          loadAssetsForProperties();
-                        },
-                      );
-                    }),
-                    if (selectedPropertyIds.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      const Divider(),
-                      const Text(
-                        'เลือกอุปกรณ์',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                    ExpansionTile(
+                      initiallyExpanded: propertySectionExpanded,
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        'เลือกบ้าน${selectedPropertyIds.isNotEmpty ? ' (${selectedPropertyIds.length})' : ''}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 4),
-                      if (loadingAssets)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (allAssets.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Text(
-                            'ไม่พบอุปกรณ์ในบ้านที่เลือก',
-                            style: TextStyle(fontSize: 13),
+                      onExpansionChanged: (v) {
+                        setDialogState(() => propertySectionExpanded = v);
+                      },
+                      children: properties.map((p) {
+                        final pid = p['id'] as String;
+                        final pName = p['name'] as String;
+                        return CheckboxListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          title: Text(
+                            pName,
+                            style: const TextStyle(fontSize: 13),
                           ),
-                        )
-                      else
-                        ...buildAssetCheckboxes(),
+                          value: selectedPropertyIds.contains(pid),
+                          onChanged: (v) {
+                            setDialogState(() {
+                              if (v == true) {
+                                selectedPropertyIds.add(pid);
+                              } else {
+                                selectedPropertyIds.remove(pid);
+                              }
+                            });
+                            loadAssetsForProperties();
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    if (selectedPropertyIds.isNotEmpty) ...[
+                      ExpansionTile(
+                        initiallyExpanded: assetSectionExpanded,
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(
+                          'เลือกอุปกรณ์${selectedAssetIds.isNotEmpty ? ' (${selectedAssetIds.length})' : ''}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onExpansionChanged: (v) {
+                          setDialogState(() => assetSectionExpanded = v);
+                        },
+                        children: [
+                          if (loadingAssets)
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else if (allAssets.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Text(
+                                'ไม่พบอุปกรณ์ในบ้านที่เลือก',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            )
+                          else
+                            ...buildAssetCheckboxes(),
+                        ],
+                      ),
                     ],
                   ],
                 ),
