@@ -24,4 +24,8 @@ echo "=== Building Flutter Web ==="
 flutter pub get
 flutter build web --release
 
+# Remove service worker to prevent stale cache issues
+echo "=== Removing service worker cache ==="
+rm -f build/web/flutter_service_worker.js
+
 echo "=== Build complete ==="
